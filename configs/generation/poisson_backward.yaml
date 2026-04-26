@@ -1,0 +1,108 @@
+outdir: 'exps'
+name: ''
+
+# Dataset options
+task: 'inverse'  # forward, inverse, or forward_inverse
+dataset: 'poisson'
+data_path: 'data/DiffPDE/poisson_test_hf'
+data_offset: null
+resolution: 128  # downsampled resolution, defaults to dataset resolution
+max_size: null  # maximum number of samples to use, defaults to one epoch
+batch_size: 160  # full batch = 1000
+
+# Model options
+pkl_path: model/diffusion/poisson/network-snapshot-10016064.pkl
+rbf_scale: 0.05
+# Path to surrogate forward model (.pth) or training checkpoint (with model_state). Optional if using default paths.
+surrogate_path: model/no_surrogate/fno_pad/forward_poisson/128/500/fno_trained_500_oa5hfuiw.pth
+# Surrogate architecture (optional). If omitted, current per-type defaults are used.
+surrogate_config:
+  n_modes: [64, 64]
+  in_channels: 1
+  out_channels: 1
+  hidden_channels: 64
+  n_layers: 4
+# Examples of surrogate models (choose ONE and update surrogate_path accordingly):
+# surrogate_path: 'artifacts/models/legacy/fno_pad_trained_forward_poisson_128_500.pth'           # FNO with padding surrogate trained on full Poisson dataset
+# surrogate_path: 'artifacts/models/legacy/fno_pad_trained_forward_poisson_128_400_scarce500.pth' # FNO_pad surrogate trained on scarce Poisson data
+# surrogate_path: 'artifacts/models/legacy/fno_trained_forward_poisson.pth'                       # Standard FNO surrogate for Poisson
+# surrogate_path: 'artifacts/models/legacy/uno_trained_forward_poisson.pth'                       # UNO surrogate (U-Net-like transformer) for Poisson
+
+# Generation options
+seed: 1999870123 # 1925618564 #1568312476
+init_latents: "rbf"  # rbf or white_noise
+iterations: 500
+sigma_min: 0.002
+sigma_max: 80
+rho: 7
+
+# Loss options
+observation: 
+  - type: "sparse"
+    loss_type: "l1"  # mse, l1, l2, huber, or sobolev_h1
+    known_indices: [500, 500]
+    normalize: true
+  # - type: "pde"
+  #   loss_type: "huber"
+  #   derivative_method: "finite_diff"
+  # - type: "fno"
+  #   loss_type: "mse"
+  #   normalize: true
+
+# Guidance options
+# guidance:
+#   type: "dps"
+#   surrogate_type: "fno_pad" # fno, fno_pad, fno_pad_mix, uno
+#   weights: [0, 10000] # Default guidance = 10000
+#   # Super-resolution guidance
+#   sigma_min_1: 0.005
+#   sigma_max_2: 5
+#   init_resolution: 64
+#   upsampling_mode: "bilinear"
+#   upsampling_step: 200
+guidance:
+  type: "daps"
+  surrogate_type: "fno_pad" # fno, fno_pad, fno_pad_mix, uno, numerical_poisson
+  # Super-resolution guidance
+  sigma_min_1: 0.005
+  sigma_max_2: 5
+  init_resolution: 64
+  upsampling_mode: "bilinear"
+  upsampling_step: 50
+  annealing:
+    num_steps: 100
+    sigma_max: 10
+    sigma_min: 0.01
+    sigma_final: 0
+    rho: 7
+  diffusion:
+    num_steps: 5
+    sigma_min: 0.001
+    sigma_final: 0
+    rho: 7
+  langevin:
+    num_steps: 20 # 16.36% with annealing/langevin steps = 100/20, weights = 20; 16.78% with weights_1 = 10, weights_2 = 15
+    lr: 1.0e-4
+    lr_min_ratio: 0.01
+    lr_rho: 1
+    eta: 0.1  # noise level
+    tau: 0.001  # the inverse of observation importance
+    weights: [0, 20]  # Fallback weights for base DAPS class
+    weights_1: [0, 10]  # Low resolution phase (steps 0-49)
+    weights_2: [0, 15]  # High resolution phase (steps 50-99)
+    # Dynamic Langevin control parameters
+    dynamic_control: False  # Enable dynamic control of Langevin steps
+    decay_type: "linear"  # Options: "exponential", "linear", "polynomial", "step", "sigmoid", "increasing"
+    decay_rate: 1.5 # Increase multiplier (1.5 = 50% more steps at max, more conservative)
+    min_steps: 3  # Higher minimum for better early exploration
+    # Dynamic learning rate control parameters
+    dynamic_lr: False  # Enable dynamic learning rate control
+    lr_schedule: "sigmoid"  # Options: "exponential", "linear", "polynomial", "cosine", "sigmoid", "warmup_decay"
+    lr_decay_rate: 0.5  # Learning rate decay rate (0-1), lower values = faster decay
+    lr_warmup_steps: 0  # Number of warmup steps (learning rate increases then decreases)
+
+# I/O-related
+n_plots: 4  # number of samples to plot
+n_process_steps: 10  # number of steps to plot process
+plot_spectral_energy: true  # enable spectral energy plots comparing predicted vs ground truth
+wandb: "offline"
