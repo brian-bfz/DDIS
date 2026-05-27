@@ -447,7 +447,15 @@ class PDESolverDAPS(PDESolver):
 
         self.uses_numerical_poisson = surrogate_type.lower() == "numerical_poisson"
 
-        if surrogate_type.lower() == "uno":
+        if surrogate_type.lower() == "none":
+            # No legacy surrogate. Used when the DM generates the full state
+            # and any "forward map" needed for guidance is owned by an
+            # Observation class (e.g. RolloutObservation wrapping a
+            # DynamicsSurrogate).
+            print("Surrogate type 'none': skipping surrogate load.")
+            self.surrogate = None
+            model_path = None
+        elif surrogate_type.lower() == "uno":
             kwargs = _merge_fno_kwargs(uno_defaults)
             self.surrogate = SongUNOWrapper(**kwargs)
             default_model_path = f"artifacts/models/legacy/uno_trained_forward_{config['dataset']}.pth"
@@ -481,7 +489,9 @@ class PDESolverDAPS(PDESolver):
         # Priority:
         #   1) Explicit surrogate_path from config (recommended, model-agnostic)
         #   2) Legacy default_model_path based on dataset/surrogate_type (for backward compatibility)
-        if surrogate_type.lower() != "numerical_poisson":
+        if surrogate_type.lower() == "none":
+            model_path = None
+        elif surrogate_type.lower() != "numerical_poisson":
             model_path = surrogate_path or default_model_path
         else:
             model_path = None
@@ -508,9 +518,10 @@ class PDESolverDAPS(PDESolver):
                 state_dict = loaded
                 print("Checkpoint format: state dict.")
             self.surrogate.load_state_dict(state_dict)
-        self.surrogate.to(self.device)
-        self.surrogate.eval()
-        self.surrogate.requires_grad_(False)  # freeze weights; gradients still flow to inputs
+        if self.surrogate is not None:
+            self.surrogate.to(self.device)
+            self.surrogate.eval()
+            self.surrogate.requires_grad_(False)  # freeze weights; gradients still flow to inputs
 
     def _predict_solution_from_normalized_source(self, x_source_normalized):
         """Predict normalized solution channel from normalized source channel.

@@ -257,6 +257,85 @@ class FNOObservation(Observation):
         return self._calculate_loss(pred=sol_from_fno, gt=sol_target, n_obs=self.known_indices)
 
 
+class RolloutObservation(Observation):
+    """Observation loss via autoregressive rollout of a dynamics surrogate.
+
+    Owns the problem-instance controls (``actions``, ``forcings``) and the
+    target wall observation series (``y_obs``). Delegates the rollout to a
+    :class:`generation.dynamics_surrogate.DynamicsSurrogate`, which itself
+    wraps a frozen single-step operator (e.g. ``FNOObserver``).
+
+    Setup contract (call once per problem instance, in this order):
+        1. ``obs.attach_surrogate(dynamics_surrogate)``
+        2. ``obs.init(y_obs, actions, forcings)``
+
+    Then ``get_observation_loss(x0)`` runs the T-step rollout and compares
+    against ``y_obs``. Gradients flow from the returned loss through the
+    rollout back into ``x0``.
+    """
+
+    def __init__(self, config, dataset_name):
+        super().__init__(config, dataset_name)
+        self.surrogate = None
+        self.y_obs = None
+        self.actions = None
+        self.forcings = None
+        # RolloutObservation yields a single (B, 1) scalar loss per sample,
+        # matching the convention used by PDEObservation.
+        self.n_channels = 1
+
+    def attach_surrogate(self, surrogate):
+        """Bind a ``DynamicsSurrogate`` instance. Call once after construction."""
+        self.surrogate = surrogate
+
+    def init(self, y_obs, actions, forcings, normalizer=None):
+        """Set problem-instance data.
+
+        Args:
+            y_obs:    (B, T, 3, Nx, 1, Nz) wall observations in physical units.
+            actions:  (B, T, Nx, 1, Nz)    wall-normal actuations.
+            forcings: (B, T)               scalar forcings.
+            normalizer: unused for now (FNOObserver handles its own
+                normalization internally); kept for API symmetry.
+        """
+        if self.surrogate is None:
+            raise RuntimeError("attach_surrogate() must be called before init().")
+        self.y_obs = y_obs
+        self.actions = actions
+        self.forcings = forcings
+        self.device = y_obs.device
+        self.normalizer = normalizer
+
+        # Spatial obs count per (time, channel) slice — matches the convention
+        # of PDEObservation where ``n_obs`` normalizes the spatial sum and the
+        # channel-like axis is summed afterward.
+        _, _, _, Nx, _, Nz = y_obs.shape
+        self.n_obs = Nx * Nz
+
+    def get_observation_loss(self, x0: torch.Tensor) -> torch.Tensor:
+        """Roll out from ``x0`` and score against the stored ``y_obs``.
+
+        Args:
+            x0: (B, 4, Nx, Ny, Nz) — current denoised initial state, requires
+                grad for Langevin/DPS guidance.
+
+        Returns:
+            (B, 1) per-sample loss.
+        """
+        pred = self.surrogate(x0, self.actions, self.forcings)  # (B, T, 3, Nx, 1, Nz)
+
+        # ``torch.stack`` inside the surrogate produced a contiguous tensor, so
+        # the squeeze + reshape below are views (no copy). Merge (T, C) into a
+        # single channel-like axis to fit DDIS loss functions which sum over
+        # the trailing two spatial dims.
+        residual = pred - self.y_obs
+        B, T, C, Nx, _, Nz = residual.shape
+        residual_2d = residual.squeeze(-2).reshape(B, T * C, Nx, Nz)
+
+        loss = self.loss_func(residual_2d, self.n_obs)  # (B, T*C)
+        return loss.sum(dim=1, keepdim=True)             # (B, 1)
+
+
 def get_observation_class(config, dataset_name):
     """Get the observation class based on the configuration.
 
@@ -275,5 +354,7 @@ def get_observation_class(config, dataset_name):
         return PDEObservation(config, dataset_name)
     elif config["type"] == "fno":
         return FNOObservation(config, dataset_name)
+    elif config["type"] == "rollout":
+        return RolloutObservation(config, dataset_name)
     else:
         raise ValueError(f"Unknown observation type: {config['type']}")
