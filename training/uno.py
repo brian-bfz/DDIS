@@ -80,18 +80,18 @@ class UNOBlock(torch.nn.Module):
         self.skip = None
         if out_channels != in_channels or up or down:
             kernel = 1 if resample_proj or out_channels != in_channels else 0
-            self.skip = Conv2d(in_channels=in_channels, out_channels=out_channels, kernel=kernel, resample_filter=resample_filter, up=up, down=down, **init)
+            self.skip = Conv3d(in_channels=in_channels, out_channels=out_channels, kernel=kernel, resample_filter=resample_filter, up=up, down=down, **init)
 
         if self.num_heads:
             self.norm2 = GroupNorm(num_channels=out_channels, eps=eps)
-            self.qkv = Conv2d(in_channels=out_channels, out_channels=out_channels * 3, kernel=1, **(init_attn if init_attn is not None else init))
-            self.proj = Conv2d(in_channels=out_channels, out_channels=out_channels, kernel=1, **init_zero)
+            self.qkv = Conv3d(in_channels=out_channels, out_channels=out_channels * 3, kernel=1, **(init_attn if init_attn is not None else init))
+            self.proj = Conv3d(in_channels=out_channels, out_channels=out_channels, kernel=1, **init_zero)
 
     def forward(self, x, emb):
         orig = x
         x = self.conv0(silu(self.norm0(x)))
 
-        params = self.affine(emb).unsqueeze(2).unsqueeze(3).to(x.dtype)
+        params = self.affine(emb).unsqueeze(2).unsqueeze(3).unsqueeze(4).to(x.dtype)
         if self.adaptive_scale:
             scale, shift = params.chunk(chunks=2, dim=1)
             x = silu(torch.addcmul(shift, self.norm1(x), scale + 1))
@@ -189,24 +189,24 @@ class SongUNO(torch.nn.Module):
                 cy = label_dim
                 # lifting channel by 1x1 kernel
                 if cond:
-                    self.enc[f"{res}x{res}_conv"] = Conv2d(in_channels=cin + cy + 2, out_channels=cout, kernel=1, **init)  # kernel=3
+                    self.enc[f"{res}x{res}_conv"] = Conv3d(in_channels=cin + cy + 3, out_channels=cout, kernel=1, **init)  # kernel=3
                 else:
-                    self.enc[f"{res}x{res}_conv"] = Conv2d(in_channels=cin + 2, out_channels=cout, kernel=1, **init)
+                    self.enc[f"{res}x{res}_conv"] = Conv3d(in_channels=cin + 3, out_channels=cout, kernel=1, **init)
                 # self.enc[f'{res}x{res}_conv'] = UNOBlock(in_channels=cin+cy, out_channels=cout, n_modes=(n_modes_max, n_modes_max), rank=rank, group_norm=False, **block_kwargs)
             else:
-                self.enc[f"{res}x{res}_down"] = UNOBlock(in_channels=cout, out_channels=cout, n_modes=(n_modes, n_modes), rank=rank, down=True, **block_kwargs)
+                self.enc[f"{res}x{res}_down"] = UNOBlock(in_channels=cout, out_channels=cout, n_modes=(n_modes, n_modes, n_modes), rank=rank, down=True, **block_kwargs)
                 if encoder_type == "skip":
-                    self.enc[f"{res}x{res}_aux_down"] = Conv2d(in_channels=caux, out_channels=caux, kernel=0, down=True, resample_filter=resample_filter)
-                    self.enc[f"{res}x{res}_aux_skip"] = Conv2d(in_channels=caux, out_channels=cout, kernel=1, **init)
+                    self.enc[f"{res}x{res}_aux_down"] = Conv3d(in_channels=caux, out_channels=caux, kernel=0, down=True, resample_filter=resample_filter)
+                    self.enc[f"{res}x{res}_aux_skip"] = Conv3d(in_channels=caux, out_channels=cout, kernel=1, **init)
                 if encoder_type == "residual":
-                    self.enc[f"{res}x{res}_aux_residual"] = Conv2d(in_channels=caux, out_channels=cout, kernel=1, down=True, resample_filter=resample_filter, fused_resample=True, **init)  # kernel=3
-                    # self.enc[f'{res}x{res}_aux_residual'] = UNOBlock(in_channels=caux, out_channels=cout, n_modes=(n_modes,n_modes), down=True, **block_kwargs)
+                    self.enc[f"{res}x{res}_aux_residual"] = Conv3d(in_channels=caux, out_channels=cout, kernel=1, down=True, resample_filter=resample_filter, fused_resample=True, **init)  # kernel=3
+                    # self.enc[f'{res}x{res}_aux_residual'] = UNOBlock(in_channels=caux, out_channels=cout, n_modes=(n_modes,n_modes,n_modes), down=True, **block_kwargs)
                     caux = cout
             for idx in range(num_blocks):
                 cin = cout
                 cout = model_channels * mult
                 attn = res in attn_resolutions
-                self.enc[f"{res}x{res}_block{idx}"] = UNOBlock(in_channels=cin, out_channels=cout, n_modes=(n_modes, n_modes), rank=rank, attention=attn, **block_kwargs)
+                self.enc[f"{res}x{res}_block{idx}"] = UNOBlock(in_channels=cin, out_channels=cout, n_modes=(n_modes, n_modes, n_modes), rank=rank, attention=attn, **block_kwargs)
 
         if not self.disable_skip:
             skips = [block.out_channels for name, block in self.enc.items() if "aux" not in name]
@@ -219,21 +219,21 @@ class SongUNO(torch.nn.Module):
             res = img_resolution >> level
             n_modes = int(res * fmult)
             if level == len(channel_mult) - 1:
-                self.dec[f"{res}x{res}_in0"] = UNOBlock(in_channels=cout, out_channels=cout, n_modes=(n_modes, n_modes), rank=rank, attention=True, **block_kwargs)
-                self.dec[f"{res}x{res}_in1"] = UNOBlock(in_channels=cout, out_channels=cout, n_modes=(n_modes, n_modes), rank=rank, **block_kwargs)
+                self.dec[f"{res}x{res}_in0"] = UNOBlock(in_channels=cout, out_channels=cout, n_modes=(n_modes, n_modes, n_modes), rank=rank, attention=True, **block_kwargs)
+                self.dec[f"{res}x{res}_in1"] = UNOBlock(in_channels=cout, out_channels=cout, n_modes=(n_modes, n_modes, n_modes), rank=rank, **block_kwargs)
             else:
-                self.dec[f"{res}x{res}_up"] = UNOBlock(in_channels=cout, out_channels=cout, n_modes=(n_modes, n_modes), rank=rank, up=True, **block_kwargs)
+                self.dec[f"{res}x{res}_up"] = UNOBlock(in_channels=cout, out_channels=cout, n_modes=(n_modes, n_modes, n_modes), rank=rank, up=True, **block_kwargs)
             for idx in range(num_blocks + 1):
                 cin = cout + skips.pop()
                 cout = model_channels * mult
                 attn = idx == num_blocks and res in attn_resolutions
-                self.dec[f"{res}x{res}_block{idx}"] = UNOBlock(in_channels=cin, out_channels=cout, n_modes=(n_modes, n_modes), rank=rank, attention=attn, **block_kwargs)
+                self.dec[f"{res}x{res}_block{idx}"] = UNOBlock(in_channels=cin, out_channels=cout, n_modes=(n_modes, n_modes, n_modes), rank=rank, attention=attn, **block_kwargs)
             if decoder_type == "skip" or level == 0:
                 if decoder_type == "skip" and level < len(channel_mult) - 1:
-                    self.dec[f"{res}x{res}_aux_up"] = Conv2d(in_channels=out_channels, out_channels=out_channels, kernel=0, up=True, resample_filter=resample_filter)
+                    self.dec[f"{res}x{res}_aux_up"] = Conv3d(in_channels=out_channels, out_channels=out_channels, kernel=0, up=True, resample_filter=resample_filter)
                 self.dec[f"{res}x{res}_aux_norm"] = GroupNorm(num_channels=cout, eps=1e-6)
                 # Had issus when making this a spectralconv, just make it a 1x1 kernel.
-                self.dec[f"{res}x{res}_aux_conv"] = Conv2d(in_channels=cout, out_channels=out_channels, kernel=1, **init_zero)  # kernel=3
+                self.dec[f"{res}x{res}_aux_conv"] = Conv3d(in_channels=cout, out_channels=out_channels, kernel=1, **init_zero)  # kernel=3
 
     def forward(self, x, noise_labels, class_labels, augment_labels=None, grid=None):
         # Mapping.
@@ -294,9 +294,12 @@ class SongUNO(torch.nn.Module):
         return aux
 
     def get_grid(self, shape, device):
-        batchsize, size_x, size_y = shape[0], shape[2], shape[3]
+        batchsize, size_x, size_y, size_z = shape[0], shape[2], shape[3], shape[4]
         gridx = torch.tensor(np.linspace(0, 1, size_x), dtype=torch.float)
-        gridx = gridx.reshape(1, size_x, 1, 1).repeat([batchsize, 1, size_y, 1])
+        gridx = gridx.reshape(1, size_x, 1, 1, 1).repeat([batchsize, 1, size_y, size_z, 1])
         gridy = torch.tensor(np.linspace(0, 1, size_y), dtype=torch.float)
-        gridy = gridy.reshape(1, 1, size_y, 1).repeat([batchsize, size_x, 1, 1])
-        return torch.cat((gridx, gridy), dim=-1).transpose(-1, -2).transpose(-2, -3).to(device)
+        gridy = gridy.reshape(1, 1, size_y, 1, 1).repeat([batchsize, size_x, 1, size_z, 1])
+        gridz = torch.tensor(np.linspace(0, 1, size_z), dtype=torch.float)
+        gridz = gridz.reshape(1, 1, 1, size_z, 1).repeat([batchsize, size_x, size_y, 1, 1])
+        # stack to (B, size_x, size_y, size_z, 3), then move channels to dim 1
+        return torch.cat((gridx, gridy, gridz), dim=-1).permute(0, 4, 1, 2, 3).to(device)
