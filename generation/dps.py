@@ -5,7 +5,7 @@ import os  # Added for auto-detection
 
 from .base import PDESolver
 from generation.observation import FNO  # For FNO surrogate
-from training.networks import SongUNO  # For UNO surrogate
+from training.uno import SongUNO  # For UNO surrogate
 
 # Custom FNO_pad class to match training architecture
 class FNO_pad(FNO):

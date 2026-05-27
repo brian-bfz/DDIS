@@ -125,3 +125,7 @@ dependencies:
       - yarl
       - zarr
       - zipp
+      - torch_harmonics==0.8.0  # must match jaxfluids-new; newer versions have ABI issues
+      # neuraloperator: install from pde-policylearning-compressible/src/neuralop (has RNO)
+      # run: pip install -e /home/brian/pde-policylearning-compressible/src/neuralop
+      # run: pip install -e /home/brian/pde-policylearning-compressible

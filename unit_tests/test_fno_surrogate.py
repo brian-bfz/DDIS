@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import os
 from neuralop.models.fno import FNO
 from training.dataset_hf import PDEDataset
-from training.networks import SongUNO
+from training.uno import SongUNO
 
 
 # Custom FNO_pad class to match training architecture

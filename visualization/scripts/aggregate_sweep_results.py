@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 from neuralop.models.fno import FNO
 
 from training.dataset_hf import PDEDataset
-from training.networks import SongUNO
+from training.uno import SongUNO
 
 OUTPUT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "outputs"))
 CONFIG_PATH = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "sweep_config.yaml"))

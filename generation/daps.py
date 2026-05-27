@@ -10,7 +10,7 @@ from training.dataset_utils import DatasetNormalizer
 
 from .base import PDESolver
 from generation.observation import FNO  # For FNO surrogate
-from training.networks import SongUNO  # For UNO surrogate
+from training.uno import SongUNO  # For UNO surrogate
 
 # NumericalPoissonWrapper is fully self-contained below (no external solver file needed)
 HAS_NUMERICAL_POISSON = True

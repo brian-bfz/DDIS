@@ -17,7 +17,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from neuralop.models.fno import FNO
-from training.networks import SongUNO
+from training.uno import SongUNO
 import wandb
 import numpy as np
 from scipy.io import loadmat
