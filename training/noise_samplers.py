@@ -1,6 +1,20 @@
 import torch
 
 
+class GaussianSampler:
+    """Standard i.i.d. Gaussian noise sampler for 3-D (or any) fields.
+    Drop-in replacement for RBFKernel when the RBF covariance matrix would
+    be too large to fit in memory (e.g. 32^3 spatial grid)."""
+
+    def __init__(self, in_channels, Ln1, Ln2, Ln3=None, device=None, **kwargs):
+        self.shape = (in_channels, Ln1, Ln2) if Ln3 is None else (in_channels, Ln1, Ln2, Ln3)
+        self.device = device
+
+    @torch.no_grad()
+    def sample(self, N):
+        return torch.randn(N, *self.shape, device=self.device)
+
+
 def get_fixed_coords(Ln1, Ln2):
     xs = torch.linspace(0, 1, steps=Ln1 + 1)[0:-1]
     ys = torch.linspace(0, 1, steps=Ln2 + 1)[0:-1]

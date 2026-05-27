@@ -66,7 +66,7 @@ def main():
     # Initialize config dict.
     c = dnnlib.EasyDict()
     c.dataset_kwargs = dnnlib.EasyDict(
-        class_name="training.dataset_hf.PDEDataset",
+        class_name=conf["dataset_class"],
         path=conf["data"],
         resolution=conf["resolution"],
         use_labels=conf["cond"],
@@ -115,16 +115,16 @@ def main():
 
     # Preconditioning & loss function.
     if conf["precond"] == "vp":
-        c.network_kwargs.class_name = "training.networks.VPPrecond"
+        c.network_kwargs.class_name = "training.precond.VPPrecond"
         c.loss_kwargs.class_name = "training.loss.VPLoss"
     elif conf["precond"] == "ve":
-        c.network_kwargs.class_name = "training.networks.VEPrecond"
+        c.network_kwargs.class_name = "training.precond.VEPrecond"
         c.loss_kwargs.class_name = "training.loss.VELoss"
     elif conf["precond"] == "edm":
-        c.network_kwargs.class_name = "training.networks.EDMPrecond"
+        c.network_kwargs.class_name = "training.precond.EDMPrecond"
         c.loss_kwargs.class_name = "training.loss.EDMLossWithSampler" if conf["arch"] == "ddpmpp-uno" else "training.loss.EDMLoss"
     elif conf["precond"] == "pi_edm":
-        c.network_kwargs.class_name = "training.networks.EDMPrecond"
+        c.network_kwargs.class_name = "training.precond.EDMPrecond"
         c.loss_kwargs.class_name = "training.loss.PI_EDMLossWithSampler"
         # Do NOT add fno_surrogate to c.loss_kwargs here!
         # Just build the config as usual

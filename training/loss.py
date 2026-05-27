@@ -25,7 +25,7 @@ class VPLoss:
         self.epsilon_t = epsilon_t
 
     def __call__(self, net, images, labels, augment_pipe=None):
-        rnd_uniform = torch.rand([images.shape[0], 1, 1, 1], device=images.device)
+        rnd_uniform = torch.rand([images.shape[0]] + [1] * (images.ndim - 1), device=images.device)
         sigma = self.sigma(1 + rnd_uniform * (self.epsilon_t - 1))
         weight = 1 / sigma**2
         y, augment_labels = augment_pipe(images) if augment_pipe is not None else (images, None)
@@ -52,7 +52,7 @@ class VELoss:
         self.sigma_max = sigma_max
 
     def __call__(self, net, images, labels, augment_pipe=None):
-        rnd_uniform = torch.rand([images.shape[0], 1, 1, 1], device=images.device)
+        rnd_uniform = torch.rand([images.shape[0]] + [1] * (images.ndim - 1), device=images.device)
         sigma = self.sigma_min * ((self.sigma_max / self.sigma_min) ** rnd_uniform)
         weight = 1 / sigma**2
         y, augment_labels = augment_pipe(images) if augment_pipe is not None else (images, None)
@@ -75,7 +75,7 @@ class EDMLoss:
         self.sigma_data = sigma_data
 
     def __call__(self, net, images, labels=None, augment_pipe=None):
-        rnd_normal = torch.randn([images.shape[0], 1, 1, 1], device=images.device)
+        rnd_normal = torch.randn([images.shape[0]] + [1] * (images.ndim - 1), device=images.device)
         sigma = (rnd_normal * self.P_std + self.P_mean).exp()
         weight = (sigma**2 + self.sigma_data**2) / (sigma * self.sigma_data) ** 2
         y, augment_labels = augment_pipe(images) if augment_pipe is not None else (images, None)
@@ -99,7 +99,7 @@ class EDMLossWithSampler:
         self.sigma_data = sigma_data
 
     def __call__(self, net, images, labels=None, augment_pipe=None):  # TODO provide sampler when calling
-        rnd_normal = torch.randn([images.shape[0], 1, 1, 1], device=images.device)
+        rnd_normal = torch.randn([images.shape[0]] + [1] * (images.ndim - 1), device=images.device)
         sigma = (rnd_normal * self.P_std + self.P_mean).exp()
         weight = (sigma**2 + self.sigma_data**2) / (sigma * self.sigma_data) ** 2
 
@@ -131,7 +131,7 @@ class PI_EDMLossWithSampler:
 
     def __call__(self, net, images, labels=None, augment_pipe=None, gt_images=None):
         # Data loss calculation (same as EDMLossWithSampler)
-        rnd_normal = torch.randn([images.shape[0], 1, 1, 1], device=images.device)
+        rnd_normal = torch.randn([images.shape[0]] + [1] * (images.ndim - 1), device=images.device)
         sigma = (rnd_normal * self.P_std + self.P_mean).exp()
         weight = (sigma**2 + self.sigma_data**2) / (sigma * self.sigma_data) ** 2
 

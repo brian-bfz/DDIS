@@ -98,7 +98,8 @@ def training_loop(
             dist.print0("WARNING: Model input and output channels do not match!")
     if dist.get_rank() == 0:
         with torch.no_grad():
-            images = torch.zeros([batch_gpu, net.img_channels, net.img_resolution, net.img_resolution], device=device)
+            spatial = dataset_obj.spatial_shape if hasattr(dataset_obj, "spatial_shape") else (dataset_obj.resolution, dataset_obj.resolution)
+            images = torch.zeros([batch_gpu, net.img_channels, *spatial], device=device)
             sigma = torch.ones([batch_gpu], device=device)
             labels = torch.zeros([batch_gpu, net.label_dim], device=device) if cond else None
             misc.print_module_summary(net, [images, sigma, labels], max_nesting=2)
@@ -112,9 +113,12 @@ def training_loop(
         sampler_channels = dataset_obj.num_channels
         dist.print0(f"Using {sampler_channels} channels for sampler (dataset channels)")
     
+    spatial = dataset_obj.spatial_shape if hasattr(dataset_obj, "spatial_shape") else (dataset_obj.resolution, dataset_obj.resolution)
     sampler_kwargs.in_channels = sampler_channels
-    sampler_kwargs.Ln1 = dataset_obj.resolution
-    sampler_kwargs.Ln2 = dataset_obj.resolution
+    sampler_kwargs.Ln1 = spatial[0]
+    sampler_kwargs.Ln2 = spatial[1]
+    if len(spatial) == 3:
+        sampler_kwargs.Ln3 = spatial[2]
     # Have to specify `device` here since it is not serialisable
     sampler_kwargs.device = device
     loss_kwargs.sampler = dnnlib.util.construct_class_by_name(**sampler_kwargs)  # TODO multiresolution

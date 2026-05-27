@@ -1,10 +1,13 @@
 # Main options
 outdir: "exps"  # Where to save the results
 data: "__required__"  # Path to the dataset
+dataset_class: "training.dataset_hf.PDEDataset"  # Dataset class to use
 resolution: null  # Resolution of the dataset after downsampling
 cond: false  # Train class-conditional model
 arch: "ddpmpp-uno"  # Network architecture (options: ddpmpp, ncsnpp, adm, ddpmpp-uno)
 precond: "edm"  # Preconditioning & loss function (options: vp, ve, edm)
+channel: null  # Channel(s) to use from dataset (null = all)
+DM_channel: null  # Channel(s) to train DM on (null = all)
 
 # Hyperparameters
 duration: 200  # Training duration in millions of images

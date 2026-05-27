@@ -1,0 +1,49 @@
+# Pipe 3-D velocity+pressure diffusion model (turbulent channel flow)
+outdir: "exps"
+data: "__required__"  # e.g. /path/to/oc_full_0to100/snapshots_north_128.h5 or a glob
+dataset_class: "training.dataset_pipe.PipeDataset"
+resolution: 32
+name: "__required__"
+cond: false
+arch: "ddpmpp-uno"
+precond: "edm"
+channel: null   # use all 4 channels (u, v, w, p)
+DM_channel: null
+
+# Noise sampler — Gaussian (RBF covariance is infeasible for 32^3)
+rbf_scale: 0.05  # ignored by GaussianSampler, kept for config compat
+
+# Network
+attn_resolutions: [4]
+num_blocks: 2
+fmult: 0.5
+rank: 1.0
+nn_resolution: null
+
+# Training
+duration: 200
+batch: 4
+batch_gpu: null
+lr: 1.0e-4
+ema: 0.5
+dropout: 0.1
+augment: 0.0
+xflip: false
+
+# Performance
+fp16: false
+ls: 1
+bench: true
+cache: false
+workers: 2
+
+# I/O
+tick: 10
+snap: 50
+dump: 200
+seed: null
+resume: null
+dry_run: false
+
+# Wandb
+wandb: "online"
