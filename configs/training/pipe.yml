@@ -2,10 +2,15 @@
 # Full-capacity config assuming >=64GB VRAM
 outdir: "exps"
 data: 
-  - /home/brian/pde-policylearning-compressible/data/oc_full_0to100/snapshots_north.h5
-  - /home/brian/pde-policylearning-compressible/data/oc_full_0to100/snapshots_south.h5
-  - /home/brian/pde-policylearning-compressible/data/oc_full_200to300/snapshots_north.h5
-  - /home/brian/pde-policylearning-compressible/data/oc_full_200to300/snapshots_south.h5
+  - "/resnick/groups/tensorlab/bzhao2/pde-policylearning-compressible/data/oc_full_0to100/snapshots_north.h5"
+  - "/resnick/groups/tensorlab/bzhao2/pde-policylearning-compressible/data/oc_full_0to100/snapshots_south.h5"
+  - "/resnick/groups/tensorlab/bzhao2/pde-policylearning-compressible/data/oc_full_200to300/snapshots_north.h5"
+  - "/resnick/groups/tensorlab/bzhao2/pde-policylearning-compressible/data/oc_full_200to300/snapshots_south.h5"
+  - "/resnick/groups/tensorlab/bzhao2/pde-policylearning-compressible/data/oc_full_600to700/snapshots_north.h5"
+  - "/resnick/groups/tensorlab/bzhao2/pde-policylearning-compressible/data/oc_full_600to700/snapshots_south.h5"
+  - "/resnick/groups/tensorlab/bzhao2/pde-policylearning-compressible/data/oc_full_800to900/snapshots_north.h5"
+  - "/resnick/groups/tensorlab/bzhao2/pde-policylearning-compressible/data/oc_full_800to900/snapshots_south.h5"
+# leave 400 - 500 for testing, same as the dynamics model
 dataset_class: "training.dataset_pipe.PipeDataset"
 resolution: 32
 name: "__required__"
@@ -20,7 +25,7 @@ rbf_scale: 0.05
 
 # Network
 attn_resolutions: [4]
-num_blocks: 2
+num_blocks: 3
 fmult: 0.5
 rank: 0.1
 nn_resolution: null
@@ -29,7 +34,7 @@ cres: [1, 2, 2, 2]
 lr_rampup: 0
 
 # Training
-duration: 0.001
+duration: 1 # million images
 batch: 16
 batch_gpu: 1
 lr: 1.0e-4

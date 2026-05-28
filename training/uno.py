@@ -173,6 +173,7 @@ class SongUNO(torch.nn.Module):
         self.map_noise = PositionalEmbedding(num_channels=noise_channels, endpoint=True) if embedding_type == "positional" else FourierEmbedding(num_channels=noise_channels)
         # self.map_label = Linear(in_features=label_dim, out_features=noise_channels, **init) if label_dim else None
         # self.map_augment = Linear(in_features=augment_dim, out_features=noise_channels, bias=False, **init) if augment_dim else None
+        self.map_augment = None
         self.map_layer0 = Linear(in_features=noise_channels, out_features=emb_channels, **init)
         self.map_layer1 = Linear(in_features=emb_channels, out_features=emb_channels, **init)
 
@@ -251,6 +252,7 @@ class SongUNO(torch.nn.Module):
 
         if grid is None:
             grid = self.get_grid(x.shape, x.device)
+        grid = grid.to(dtype=x.dtype)
 
         # class_labels = self.map_label(class_labels)
         if self.cond:
@@ -295,11 +297,11 @@ class SongUNO(torch.nn.Module):
 
     def get_grid(self, shape, device):
         batchsize, size_x, size_y, size_z = shape[0], shape[2], shape[3], shape[4]
-        gridx = torch.tensor(np.linspace(0, 1, size_x), dtype=torch.float)
+        gridx = torch.tensor(np.linspace(0, 1, size_x), dtype=torch.float32)
         gridx = gridx.reshape(1, size_x, 1, 1, 1).repeat([batchsize, 1, size_y, size_z, 1])
-        gridy = torch.tensor(np.linspace(0, 1, size_y), dtype=torch.float)
+        gridy = torch.tensor(np.linspace(0, 1, size_y), dtype=torch.float32)
         gridy = gridy.reshape(1, 1, size_y, 1, 1).repeat([batchsize, size_x, 1, size_z, 1])
-        gridz = torch.tensor(np.linspace(0, 1, size_z), dtype=torch.float)
+        gridz = torch.tensor(np.linspace(0, 1, size_z), dtype=torch.float32)
         gridz = gridz.reshape(1, 1, 1, size_z, 1).repeat([batchsize, size_x, size_y, 1, 1])
         # stack to (B, size_x, size_y, size_z, 3), then move channels to dim 1
         return torch.cat((gridx, gridy, gridz), dim=-1).permute(0, 4, 1, 2, 3).to(device)
