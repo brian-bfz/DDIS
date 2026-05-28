@@ -31,7 +31,12 @@ class PipeDataset(Dataset):
         self._path = path
         self._name = "pipe"
 
-        files = sorted(glob.glob(path)) if "*" in path else [path]
+        if isinstance(path, (list, tuple)):
+            files = list(path)
+        elif "*" in path:
+            files = sorted(glob.glob(path))
+        else:
+            files = [path]
         if not files:
             raise IOError(f"No HDF5 files found matching: {path}")
 

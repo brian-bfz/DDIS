@@ -1,11 +1,6 @@
 # Pipe 3-D velocity+pressure diffusion model (turbulent channel flow)
-# Full-capacity config assuming >=64GB VRAM
 outdir: "exps"
-data: 
-  - /home/brian/pde-policylearning-compressible/data/oc_full_0to100/snapshots_north.h5
-  - /home/brian/pde-policylearning-compressible/data/oc_full_0to100/snapshots_south.h5
-  - /home/brian/pde-policylearning-compressible/data/oc_full_200to300/snapshots_north.h5
-  - /home/brian/pde-policylearning-compressible/data/oc_full_200to300/snapshots_south.h5
+data: "/home/brian/pde-policylearning-compressible/data/oc_full_0to100/snapshots_north.h5"
 dataset_class: "training.dataset_pipe.PipeDataset"
 resolution: 32
 name: "__required__"
@@ -30,7 +25,7 @@ lr_rampup: 0
 
 # Training
 duration: 0.001
-batch: 16
+batch: 1
 batch_gpu: 1
 lr: 1.0e-4
 ema: 0.5

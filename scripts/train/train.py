@@ -58,6 +58,7 @@ def main():
     if dist.get_rank() == 0:
         wandb.init(
             config=conf.to_dict(),
+            project="fluid-diffusion",
             name=conf["name"],
             mode=conf["wandb"],
         )
@@ -202,7 +203,8 @@ def main():
 
     # Train.
     data_path = conf['data']
-    dataset_name = os.path.basename(os.path.normpath(data_path)).split('_')[0]
+    first_path = data_path[0] if isinstance(data_path, (list, tuple)) else data_path
+    dataset_name = os.path.basename(os.path.normpath(first_path)).split('_')[0]
     c.dataset_name = dataset_name
     c.DM_channel = conf["DM_channel"]
     training_loop.training_loop(**c)
