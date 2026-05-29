@@ -121,6 +121,61 @@ class EDMLossWithSampler:
         loss = weight * ((D_yn - y) ** 2)
         return loss
 
+
+# ----------------------------------------------------------------------------
+# Relative EDM loss + RBF sampler. Designed for multi-channel fields whose
+# channels live on very different magnitude scales (e.g. velocity components vs.
+# pressure). Each channel is divided by its own per-sample RMS magnitude before
+# noise is added and the loss is computed, so every channel is trained in unit
+# (relative) scale and contributes equally regardless of its absolute size.
+#
+#   * relative noise: noise added to a channel is proportional to that channel's
+#     magnitude (equal signal-to-noise ratio across channels at a given sigma),
+#   * relative loss:  the squared error is measured in per-channel relative units.
+#
+# Working in normalized space keeps the EDM preconditioning (c_in/c_out/c_skip)
+# self-consistent, since the network always sees unit-scale inputs.
+
+
+@persistence.persistent_class
+class RelEDMLossWithSampler:
+    def __init__(self, sampler, P_mean=-1.2, P_std=1.2, sigma_data=0.5, eps=1e-6):
+        self.sampler = sampler
+        self.P_mean = P_mean
+        self.P_std = P_std
+        self.sigma_data = sigma_data
+        self.eps = eps
+
+    def __call__(self, net, images, labels=None, augment_pipe=None):
+        rnd_normal = torch.randn([images.shape[0]] + [1] * (images.ndim - 1), device=images.device)
+        sigma = (rnd_normal * self.P_std + self.P_mean).exp()
+        weight = (sigma**2 + self.sigma_data**2) / (sigma * self.sigma_data) ** 2
+
+        if labels is not None:
+            # We want to augment pipe both x and y at once.
+            x_dim = images.size(1)
+            all_images = torch.cat((images, labels), dim=1)
+            all_images_augmented, augment_labels = augment_pipe(all_images) if augment_pipe is not None else (images, None)
+            y = all_images_augmented[:, 0:x_dim]
+            labels = all_images_augmented[:, x_dim::]
+        else:
+            y, augment_labels = images, None
+
+        # Per-channel relative scale: RMS magnitude of each channel within each
+        # sample, computed over the spatial dimensions -> shape (B, C, 1, ...).
+        spatial_dims = tuple(range(2, y.ndim))
+        scale = y.pow(2).mean(dim=spatial_dims, keepdim=True).sqrt().clamp(min=self.eps)
+
+        # Normalize each channel to unit scale, then run standard EDM. The
+        # noise is sampled in this normalized space (relative noise), and the
+        # loss is measured in normalized units (relative loss).
+        y = y / scale
+        n = self.sampler.sample(y.size(0)) * sigma
+        D_yn = net(y + n, sigma, labels, augment_labels=augment_labels)
+        loss = weight * ((D_yn - y) ** 2)
+        return loss
+
+
 class PI_EDMLossWithSampler:
     def __init__(self, sampler, fno_surrogate, P_mean=-1.2, P_std=1.2, sigma_data=0.5):
         self.sampler = sampler

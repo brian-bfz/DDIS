@@ -39,6 +39,9 @@ def training_loop(
     ema_halflife_kimg=500,  # Half-life of the exponential moving average (EMA) of model weights.
     ema_rampup_ratio=0.05,  # EMA ramp-up coefficient, None = no rampup.
     lr_rampup_kimg=10000,  # Learning rate ramp-up duration.
+    lr_decay_kimg=0,  # Step-LR decay interval, measured in kimg. 0 = no decay.
+    lr_decay_gamma=1.0,  # Multiplicative LR decay factor applied every lr_decay_kimg.
+    grad_clip=None,  # Max gradient norm for clipping. None or <=0 = disabled.
     loss_scaling=1,  # Loss scaling factor for reducing FP16 under/overflows.
     kimg_per_tick=50,  # Interval of progress prints.
     snapshot_ticks=50,  # How often to save network snapshots, None = disable.
@@ -220,6 +223,9 @@ def training_loop(
 
         # Update weights.
         target_lr = optimizer_kwargs["lr"] * min(cur_nimg / max(lr_rampup_kimg * 1000, 1e-8), 1)
+        # Step-LR schedule: decay the LR by lr_decay_gamma every lr_decay_kimg.
+        if lr_decay_kimg > 0 and lr_decay_gamma != 1.0:
+            target_lr *= lr_decay_gamma ** (cur_nimg // (lr_decay_kimg * 1000))
         for g in optimizer.param_groups:
             g["lr"] = target_lr
         # JIACHEN: commented out the following line as it slows down the training.
@@ -227,6 +233,9 @@ def training_loop(
         #     if param.grad is not None:
         #         training_stats.report("Loss/any_nan", torch.isnan(param.grad).any().item())
         #         torch.nan_to_num(param.grad, nan=0, posinf=1e5, neginf=-1e5, out=param.grad)
+        # Gradient clipping (by global norm) for training stability.
+        if grad_clip is not None and grad_clip > 0:
+            torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=grad_clip)
         optimizer.step()
 
         # Update EMA.

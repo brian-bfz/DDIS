@@ -34,7 +34,7 @@ cres: [1, 2, 2, 2]
 lr_rampup: 0
 
 # Training
-duration: 1 # million images
+duration: 0.2 # million images
 batch: 16
 batch_gpu: 1
 lr: 1.0e-4
@@ -43,17 +43,24 @@ dropout: 0.1
 augment: 0.0
 xflip: false
 
+# Relative loss + noise: per-channel normalization so u, v, w, p contribute equally
+relative_loss: true
+
+grad_clip: 1.0
+lr_decay: 0.05
+lr_decay_gamma: 0.75
+
 # Performance
-fp16: true
+fp16: false
 ls: 1
 bench: true
-cache: false
+cache: true
 workers: 2
 
 # I/O
 tick: 10
-snap: 50
-dump: 200
+snap: 5     # network-snapshot (50 kimg)
+dump: 5    # full training-state 
 seed: null
 resume: null
 dry_run: false

@@ -123,7 +123,12 @@ def main():
         c.loss_kwargs.class_name = "training.loss.VELoss"
     elif conf["precond"] == "edm":
         c.network_kwargs.class_name = "training.precond.EDMPrecond"
-        c.loss_kwargs.class_name = "training.loss.EDMLossWithSampler" if conf["arch"] == "ddpmpp-uno" else "training.loss.EDMLoss"
+        if conf["arch"] == "ddpmpp-uno":
+            # Use the relative (per-channel normalized) loss + noise so that
+            # channels with different magnitudes contribute equally.
+            c.loss_kwargs.class_name = "training.loss.RelEDMLossWithSampler" if conf.get("relative_loss", False) else "training.loss.EDMLossWithSampler"
+        else:
+            c.loss_kwargs.class_name = "training.loss.EDMLoss"
     elif conf["precond"] == "pi_edm":
         c.network_kwargs.class_name = "training.precond.EDMPrecond"
         c.loss_kwargs.class_name = "training.loss.PI_EDMLossWithSampler"
@@ -147,6 +152,9 @@ def main():
     # Training options.
     c.total_kimg = max(int(conf["duration"] * 1000), 1)
     c.lr_rampup_kimg = int(conf["lr_rampup"] * 1000)
+    c.lr_decay_kimg = int(conf.get("lr_decay", 0) * 1000)  # Step-LR interval (million images -> kimg).
+    c.lr_decay_gamma = conf.get("lr_decay_gamma", 1.0)
+    c.grad_clip = conf.get("grad_clip", None)
     c.ema_halflife_kimg = int(conf["ema"] * 1000)
     c.update(batch_size=conf["batch"], batch_gpu=conf["batch_gpu"])
     c.update(loss_scaling=conf["ls"], cudnn_benchmark=conf["bench"])
