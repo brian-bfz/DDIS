@@ -202,3 +202,4 @@ visualization/outputs/
 !artifacts/models/
 !artifacts/models/curated/
 !artifacts/models/curated/**
+slurm/
